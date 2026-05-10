@@ -4,4 +4,4 @@ pandas
 lxml
 openpyxl
 fpdf2
-streamlit-google-auth==1.4.0
+streamlit-google-auth
