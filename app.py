@@ -17,13 +17,13 @@ CLIENT_SECRET = "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"
 # Daftar email yang diizinkan
 AUTHORIZED_EMAILS = ["galihsoldierfsdqw@gmail.com"]
 
-# Inisialisasi Google Auth dengan parameter terbaru
+# Inisialisasi Google Auth (MENGGUNAKAN PARAMETER VERSI STABIL)
 auth = Authenticate(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
+    secret_id=CLIENT_ID,
+    secret_password=CLIENT_SECRET,
     cookie_name="so_manager_auth",
-    cookie_key="secret_key_so_manager", 
-    redirect_uri="https://bvyehrqyum27v2qknkhtvy.streamlit.app"
+    key="secret_key_so_manager", 
+    urls=["https://bvyehrqyum27v2qknkhtvy.streamlit.app"]
 )
 
 # Jalankan pengecekan autentikasi
