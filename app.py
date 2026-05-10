@@ -23,7 +23,7 @@ auth = Authenticate(
     secret_password=CLIENT_SECRET,
     cookie_name="so_manager_auth",
     key="secret_key_so_manager", # String bebas untuk enkripsi cookie
-    urls=["https://bvyehrqyum27v2qknkhtvy.streamlit.app/"] # Ubah ke URL Streamlit Cloud jika sudah di-upload
+    urls=["https://bvyehrqyum27v2qknkhtvy.streamlit.app"] # Ubah ke URL Streamlit Cloud jika sudah di-upload
 )
 
 # Jalankan pengecekan autentikasi
