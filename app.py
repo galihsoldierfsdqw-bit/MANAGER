@@ -10,20 +10,20 @@ from streamlit_google_auth import Authenticate
 # --- 1. CONFIG & GOOGLE AUTH SETUP ---
 st.set_page_config(page_title="SO Manager Pro - Google Auth", layout="centered")
 
-# Masukkan Credential milikmu di sini
+# Kredensial Google Console Anda
 CLIENT_ID = "477750756502-1jlnusbeg1npj148a4gk33gdrgp5goap.apps.googleusercontent.com"
 CLIENT_SECRET = "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"
 
 # Daftar email yang diizinkan
 AUTHORIZED_EMAILS = ["galihsoldierfsdqw@gmail.com"]
 
-# Inisialisasi Google Auth
+# Inisialisasi Google Auth dengan parameter terbaru
 auth = Authenticate(
-    secret_id=CLIENT_ID,
-    secret_password=CLIENT_SECRET,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
     cookie_name="so_manager_auth",
-    key="secret_key_so_manager", # String bebas untuk enkripsi cookie
-    urls=["https://bvyehrqyum27v2qknkhtvy.streamlit.app"] # Ubah ke URL Streamlit Cloud jika sudah di-upload
+    cookie_key="secret_key_so_manager", 
+    redirect_uri="https://bvyehrqyum27v2qknkhtvy.streamlit.app"
 )
 
 # Jalankan pengecekan autentikasi
@@ -45,7 +45,7 @@ else:
             auth.logout()
         st.stop()
 
-    # Jika berhasil login, tampilkan tombol logout di sidebar
+    # Jika berhasil login, tampilkan info di sidebar
     st.sidebar.write(f"Logged in: **{user_email}**")
     if st.sidebar.button("Logout"):
         auth.logout()
@@ -117,7 +117,6 @@ with tab1:
                         df_list = pd.read_html(StringIO(res.text))
                         df = max(df_list, key=len)
                         
-                        # Pembersihan Kolom
                         if isinstance(df.columns, pd.MultiIndex):
                             df.columns = [c[-1] if 'Unnamed' not in str(c[-1]) else c[0] for c in df.columns]
                         df.columns = [str(c).strip().upper() for c in df.columns]
