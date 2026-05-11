@@ -9,17 +9,40 @@ from streamlit_google_auth import Authenticate
 # --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="SO Manager Pro", layout="centered", page_icon="📊")
 
-# --- 2. SETUP GOOGLE AUTH (MENGGUNAKAN JSON) ---
-# AUTHORIZED_EMAILS adalah daftar email yang boleh masuk
+# --- 2. SETUP GOOGLE AUTH (VERSI ANTI-TYPEERROR) ---
 AUTHORIZED_EMAILS = ["galihsoldierfsdqw@gmail.com"]
 
-# Inisialisasi: arahkan secret_id ke nama file JSON yang kamu buat di GitHub
-auth = Authenticate(
-    secret_id='client_secrets.json', 
-    cookie_name="so_manager_session",
-    key="kunci_rahasia_so_123",
-    cookie_expiry_days=1
-)
+# Kita gunakan try-except untuk memaksa library menerima parameter yang kita berikan
+auth = None
+try:
+    # Percobaan 1: Menggunakan file JSON langsung sebagai posisi pertama (Format Standar)
+    auth = Authenticate(
+        'client_secrets.json',
+        "so_manager_session",
+        "kunci_rahasia_so_123",
+        1
+    )
+except TypeError:
+    try:
+        # Percobaan 2: Jika library meminta URL redirect di urutan ketiga
+        auth = Authenticate(
+            'client_secrets.json',
+            "so_manager_session",
+            "https://bvyehrqyum27v2qknkhtvy.streamlit.app",
+            "kunci_rahasia_so_123"
+        )
+    except TypeError:
+        try:
+            # Percobaan 3: Format paling dasar (Keyword Argument untuk versi lama)
+            auth = Authenticate(
+                secret_id='client_secrets.json',
+                cookie_name="so_manager_session",
+                key="kunci_rahasia_so_123"
+            )
+        except TypeError:
+            # Jika semua gagal, hentikan aplikasi dan beri tahu error-nya
+            st.error("Library Google Auth gagal dimuat. Versi Python atau library tidak kompatibel.")
+            st.stop()
 
 # Jalankan pengecekan status login
 auth.check_authentification()
@@ -29,7 +52,7 @@ if not st.session_state.get('connected'):
     st.title("🔐 Akses Terbatas Staff")
     st.markdown("---")
     st.info("Silakan login dengan akun Google Anda untuk melanjutkan.")
-    auth.login() # Tombol Login akan mencari file client_secrets.json
+    auth.login() # Tombol Login
     st.stop()
 else:
     user_info = st.session_state.get('user_info', {})
