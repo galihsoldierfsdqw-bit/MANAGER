@@ -2,63 +2,90 @@ import streamlit as st
 import requests
 import pandas as pd
 from io import StringIO
-from streamlit_google_auth import Authenticate
+import re
+from fpdf import FPDF
 
-# --- 1. CONFIG ---
-st.set_page_config(page_title="SO Manager Pro", layout="centered")
+# --- 1. SIMPLE LOGIN SYSTEM ---
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == "staff123": # GANTI PASSWORD DISINI
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
 
-CLIENT_ID = "477750756502-1jlnusbeg1npj148a4gk33gdrgp5goap.apps.googleusercontent.com"
-CLIENT_SECRET = "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"
-REDIRECT_URI = "https://bvyehrqyum27v2qknkhtvy.streamlit.app"
-AUTHORIZED_EMAILS = ["galihsoldierfsdqw@gmail.com"]
+    if "password_correct" not in st.session_state:
+        st.title("🔐 Akses Terbatas")
+        st.text_input("Masukkan Password Staff", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("Password Salah!", type="password", on_change=password_entered, key="password")
+        return False
+    return True
 
-# --- 2. INITIALIZATION (Hanya Parameter Paling Dasar) ---
-try:
-    # Kita coba format yang paling standar untuk versi 1.1.x
-    auth = Authenticate(
-        secret_id=CLIENT_ID,
-        secret_password=CLIENT_SECRET,
-        redirect_uri=REDIRECT_URI,
-        cookie_name="so_auth",
-        key="so_key"
-    )
-except TypeError:
-    # Jika gagal, coba format alternatif tanpa 'key'
-    auth = Authenticate(
-        secret_id=CLIENT_ID,
-        secret_password=CLIENT_SECRET,
-        redirect_uri=REDIRECT_URI,
-        cookie_name="so_auth"
-    )
-
-auth.check_authentification()
-
-# --- 3. LOGIN LOGIC ---
-if not st.session_state.get('connected'):
-    st.title("🔐 Login Staff")
-    auth.login()
+if not check_password():
     st.stop()
-else:
-    user_email = st.session_state.get('user_info', {}).get('email')
-    if user_email not in AUTHORIZED_EMAILS:
-        st.error("Akses Ditolak")
-        st.stop()
+
+# --- 2. FUNGSI HELPER ---
+def clean_to_float(x):
+    if pd.isna(x) or str(x).strip() == "": return 0.0
+    clean_val = re.sub(r'[^\d.-]', '', str(x))
+    try: return float(clean_val)
+    except: return 0.0
+
+def generate_pdf(df, id_toko, tgl_so):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Courier", "B", 14)
+    pdf.cell(0, 10, f"LAPORAN SELISIH SO - {id_toko}", ln=True, align='C')
+    pdf.set_font("Courier", "", 10)
+    pdf.cell(0, 10, f"Tanggal SO: {tgl_so}", ln=True, align='C')
+    pdf.cell(0, 5, "-"*50, ln=True, align='C')
     
-    st.sidebar.success(f"User: {user_email}")
-    if st.sidebar.button("Logout"):
-        auth.logout()
+    for _, row in df.iterrows():
+        # Ambil kolom secara dinamis
+        txt = f"{row.iloc[0]} | {row.iloc[1]} | {str(row.iloc[2])[:20]} | {row.iloc[-1]}"
+        pdf.cell(0, 8, txt.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+    return pdf.output(dest='S').encode('latin-1')
 
-# --- 4. DATA LOGIC ---
-st.title("📊 SO Dashboard")
-id_toko = st.text_input("🏠 ID Toko").upper()
-tgl_so = st.text_input("📅 Tanggal (DD-MM-YYYY)")
+# --- 3. MAIN DASHBOARD ---
+st.title("📊 SO Manager Dashboard")
+st.sidebar.success("✅ Login Berhasil")
+if st.sidebar.button("Log Out"):
+    st.session_state["password_correct"] = False
+    st.rerun()
 
-if st.button("🚀 TARIK DATA"):
+col1, col2 = st.columns(2)
+with col1:
+    id_toko = st.text_input("🏠 ID Toko").upper()
+with col2:
+    tgl_so = st.text_input("📅 Tanggal (DD-MM-YYYY)")
+
+if st.button("🚀 TARIK DATA SELISIH", use_container_width=True):
     if id_toko and tgl_so:
         url = f"https://app.alfastore.co.id/prd/api/rpt/laporan_so/prosentase_so?storeId={id_toko}&dateSo={tgl_so}"
         try:
-            res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
-            df = pd.read_html(StringIO(res.text))[0]
-            st.dataframe(df, use_container_width=True)
+            with st.spinner('Menarik data...'):
+                res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+                df_list = pd.read_html(StringIO(res.text))
+                df = max(df_list, key=len)
+                
+                # Pembersihan Header
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = [c[-1] if 'Unnamed' not in str(c[-1]) else c[0] for c in df.columns]
+                
+                # Filter Selisih
+                last_col = df.columns[-1]
+                df[last_col] = df[last_col].apply(clean_to_float)
+                df_filtered = df[df[last_col] != 0]
+
+                if not df_filtered.empty:
+                    st.success(f"Ditemukan {len(df_filtered)} item selisih.")
+                    st.dataframe(df_filtered, use_container_width=True)
+                    
+                    pdf_bytes = generate_pdf(df_filtered, id_toko, tgl_so)
+                    st.download_button("🖨️ DOWNLOAD PDF", pdf_bytes, f"SO_{id_toko}.pdf", use_container_width=True)
+                else:
+                    st.info("Tidak ada selisih ditemukan.")
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Gagal menarik data: {e}")
